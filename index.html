@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TimeTrack Pro | Productivity Tracker</title>
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  
+  <!-- Day.js for date handling -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.10/dayjs.min.js"></script>
+  
+  <style id="app-style">
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --productive: #10b981;
+      --idle: #f97316;
+      --bg-dark: #121212;
+      --bg-card: #1e1e1e;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --border: #2d2d2d;
+    }
+    
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .card {
+      background-color: var(--bg-card);
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn {
+      @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+    
+    .btn-productive {
+      background-color: var(--productive);
+      color: white;
+    }
+    
+    .btn-idle {
+      background-color: var(--idle);
+      color: white;
+    }
+    
+    .btn-neutral {
+      background-color: #374151;
+      color: white;
+    }
+    
+    .btn-neutral:hover {
+      background-color: #4b5563;
+    }
+    
+    .btn-danger {
+      background-color: #ef4444;
+      color: white;
+    }
+    
+    .timer-display {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+    }
+    
+    .timer-active {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.7;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+    
+    .form-input {
+      @apply bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white w-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent;
+    }
+    
+    .metric-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    
+    .metric-label {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280;
+    }
+    
+    .table-container {
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    th {
+      background-color: rgba(0, 0, 0, 0.2);
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    
+    tr:hover {
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    
+    .modal.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .modal-content {
+      background-color: var(--bg-card);
+      border-radius: 0.5rem;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      transform: translateY(20px);
+      transition: transform 0.2s ease;
+    }
+    
+    .modal.show .modal-content {
+      transform: translateY(0);
+    }
+    
+    /* Toggle switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #374151;
+      transition: .4s;
+      border-radius: 24px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 1rem;
+      background-color: #1e1e1e;
+      color: white;
+      border-left: 4px solid var(--primary);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      border-radius: 0.25rem;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-800 z-10">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-xl font-bold text-white flex items-center">
+        <i class="fa-solid fa-stopwatch mr-2 text-indigo-500"></i>
+        TimeTrack Pro
+      </h1>
+      
+      <div class="flex items-center space-x-4">
+        <div class="relative">
+          <input type="date" id="date-picker" class="bg-gray-800 text-white px-3 py-1 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        
+        <button id="settings-btn" class="text-gray-300 hover:text-white" aria-label="Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-4 mt-16 mb-8">
+    <!-- Timer Control Panels -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <!-- Productive Time Timer -->
+      <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold flex items-center">
+            <i class="fa-solid fa-bolt text-green-500 mr-2"></i>
+            Productive Time
+          </h2>
+          <span class="bg-green-500 bg-opacity-20 text-green-500 px-3 py-1 rounded-full text-sm font-medium">Active</span>
+        </div>
+        
+        <div class="timer-display mb-6" id="productive-timer">00:00:00</div>
+        
+        <div class="flex space-x-3">
+          <button id="productive-start" class="btn btn-productive flex-1">
+            <i class="fa-solid fa-play mr-2"></i> Start
+          </button>
+          <button id="productive-stop" class="btn btn-neutral flex-1" disabled>
+            <i class="fa-solid fa-pause mr-2"></i> Pause
+          </button>
+          <button id="productive-reset" class="btn btn-neutral flex-1">
+            <i class="fa-solid fa-rotate-left mr-2"></i> Reset
+          </button>
+        </div>
+      </div>
+      
+      <!-- Idle Time Timer -->
+      <div class="card p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold flex items-center">
+            <i class="fa-solid fa-coffee text-orange-500 mr-2"></i>
+            Idle Time
+          </h2>
+          <span class="bg-orange-500 bg-opacity-20 text-orange-500 px-3 py-1 rounded-full text-sm font-medium">Inactive</span>
+        </div>
+        
+        <div class="timer-display mb-6" id="idle-timer">00:00:00</div>
+        
+        <div class="flex space-x-3">
+          <button id="idle-start" class="btn btn-idle flex-1">
+            <i class="fa-solid fa-play mr-2"></i> Start
+          </button>
+          <button id="idle-stop" class="btn btn-neutral flex-1" disabled>
+            <i class="fa-solid fa-pause mr-2"></i> Pause
+          </button>
+          <button id="idle-reset" class="btn btn-neutral flex-1">
+            <i class="fa-solid fa-rotate-left mr-2"></i> Reset
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Manual Entry Form -->
+    <div class="card p-6 mb-8">
+      <h2 class="text-xl font-bold mb-4">
+        <i class="fa-solid fa-pen-to-square text-indigo-500 mr-2"></i>
+        Manual Entry
+      </h2>
+      
+      <form id="manual-entry-form">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <div>
+            <label for="productive-minutes" class="block text-sm font-medium text-gray-400 mb-1">Productive Minutes</label>
+            <input type="number" id="productive-minutes" min="0" class="form-input" placeholder="0">
+          </div>
+          
+          <div>
+            <label for="idle-minutes" class="block text-sm font-medium text-gray-400 mb-1">Idle Minutes</label>
+            <input type="number" id="idle-minutes" min="0" class="form-input" placeholder="0">
+          </div>
+          
+          <div>
+            <label for="productivity-score" class="block text-sm font-medium text-gray-400 mb-1">Productivity Score (0-100)</label>
+            <input type="number" id="productivity-score" min="0" max="100" class="form-input" placeholder="75">
+          </div>
+          
+          <div>
+            <label for="tasks-completed" class="block text-sm font-medium text-gray-400 mb-1">Tasks Completed</label>
+            <input type="number" id="tasks-completed" min="0" class="form-input" placeholder="0">
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-full">
+          <i class="fa-solid fa-plus mr-2"></i> Add Entry
+        </button>
+      </form>
+    </div>
+    
+    <!-- Key Metrics Dashboard -->
+    <div class="card p-6 mb-8">
+      <h2 class="text-xl font-bold mb-4">
+        <i class="fa-solid fa-chart-simple text-indigo-500 mr-2"></i>
+        Today's Metrics
+      </h2>
+      
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg">
+          <div class="text-green-500 metric-value" id="total-productive">0h 0m</div>
+          <div class="metric-label">Productive Time</div>
+        </div>
+        
+        <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg">
+          <div class="text-orange-500 metric-value" id="total-idle">0h 0m</div>
+          <div class="metric-label">Idle Time</div>
+        </div>
+        
+        <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg">
+          <div class="text-blue-500 metric-value" id="tasks-count">0</div>
+          <div class="metric-label">Tasks Completed</div>
+        </div>
+        
+        <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg">
+          <div class="text-purple-500 metric-value" id="avg-productivity">0%</div>
+          <div class="metric-label">Avg. Productivity</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="card p-6 mb-8">
+      <h2 class="text-xl font-bold mb-4">
+        <i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i>
+        Analytics
+      </h2>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-lg font-medium text-gray-300 mb-3">Time Allocation</h3>
+          <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg" style="height: 300px;">
+            <canvas id="time-allocation-chart"></canvas>
+          </div>
+        </div>
+        
+        <div>
+          <h3 class="text-lg font-medium text-gray-300 mb-3">Productivity Trend (7 Days)</h3>
+          <div class="bg-gray-800 bg-opacity-50 p-4 rounded-lg" style="height: 300px;">
+            <canvas id="productivity-trend-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Logs Table -->
+    <div class="card p-6">
+      <h2 class="text-xl font-bold mb-4">
+        <i class="fa-solid fa-list text-indigo-500 mr-2"></i>
+        Activity Logs
+      </h2>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Category</th>
+              <th>Duration</th>
+              <th>Score</th>
+              <th>Tasks</th>
+            </tr>
+          </thead>
+          <tbody id="logs-table-body">
+            <tr>
+              <td colspan="5" class="text-center py-6 text-gray-500">No entries yet today. Start tracking your time!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  
+  <!-- Settings Modal -->
+  <div class="modal" id="settings-modal">
+    <div class="modal-content p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold">Settings</h3>
+        <button id="close-settings" class="text-gray-500 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-6">
+        <div class="flex items-center justify-between">
+          <span class="text-gray-300">Dark Mode</span>
+          <label class="switch">
+            <input type="checkbox" id="dark-mode-toggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="flex items-center justify-between">
+          <span class="text-gray-300">Sound Notifications</span>
+          <label class="switch">
+            <input type="checkbox" id="sound-toggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <hr class="border-gray-700">
+        
+        <div class="pt-2">
+          <button id="export-data" class="btn btn-neutral w-full mb-4">
+            <i class="fa-solid fa-download mr-2"></i> Export Data (CSV)
+          </button>
+          
+          <button id="reset-data" class="btn btn-danger w-full">
+            <i class="fa-solid fa-trash-can mr-2"></i> Reset All Data
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast notification -->
+  <div class="toast" id="toast">
+    <div class="flex items-center">
+      <i class="fa-solid fa-circle-check text-green-500 mr-2"></i>
+      <span id="toast-message">Entry added successfully!</span>
+    </div>
+  </div>
+
+  <script id="app-script">
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set today's date as default
+      const today = new Date();
+      const dateInput = document.getElementById('date-picker');
+      dateInput.valueAsDate = today;
+      
+      // Timer variables
+      let productiveTimer = {
+        seconds: 0,
+        minutes: 0,
+        hours: 0,
+        interval: null,
+        isRunning: false
+      };
+      
+      let idleTimer = {
+        seconds: 0,
+        minutes: 0,
+        hours: 0,
+        interval: null,
+        isRunning: false
+      };
+      
+      // Elements
+      const productiveTimerDisplay = document.getElementById('productive-timer');
+      const idleTimerDisplay = document.getElementById('idle-timer');
+      
+      const productiveStartBtn = document.getElementById('productive-start');
+      const productiveStopBtn = document.getElementById('productive-stop');
+      const productiveResetBtn = document.getElementById('productive-reset');
+      
+      const idleStartBtn = document.getElementById('idle-start');
+      const idleStopBtn = document.getElementById('idle-stop');
+      const idleResetBtn = document.getElementById('idle-reset');
+      
+      const manualEntryForm = document.getElementById('manual-entry-form');
+      
+      const settingsBtn = document.getElementById('settings-btn');
+      const settingsModal = document.getElementById('settings-modal');
+      const closeSettingsBtn = document.getElementById('close-settings');
+      const resetDataBtn = document.getElementById('reset-data');
+      const exportDataBtn = document.getElementById('export-data');
+      
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toast-message');
+      
+      // Timer functions
+      function startProductiveTimer() {
+        if (!productiveTimer.isRunning) {
+          if (idleTimer.isRunning) {
+            stopIdleTimer();
+          }
+          
+          productiveTimer.isRunning = true;
+          productiveStartBtn.disabled = true;
+          productiveStopBtn.disabled = false;
+          
+          productiveTimerDisplay.classList.add('timer-active');
+          
+          productiveTimer.interval = setInterval(function() {
+            productiveTimer.seconds++;
+            
+            if (productiveTimer.seconds >= 60) {
+              productiveTimer.seconds = 0;
+              productiveTimer.minutes++;
+              
+              if (productiveTimer.minutes >= 60) {
+                productiveTimer.minutes = 0;
+                productiveTimer.hours++;
+              }
+            }
+            
+            updateTimerDisplay(productiveTimerDisplay, productiveTimer);
+          }, 1000);
+        }
+      }
+      
+      function stopProductiveTimer() {
+        if (productiveTimer.isRunning) {
+          clearInterval(productiveTimer.interval);
+          productiveTimer.isRunning = false;
+          productiveStartBtn.disabled = false;
+          productiveStopBtn.disabled = true;
+          productiveTimerDisplay.classList.remove('timer-active');
+        }
+      }
+      
+      function resetProductiveTimer() {
+        stopProductiveTimer();
+        productiveTimer.seconds = 0;
+        productiveTimer.minutes = 0;
+        productiveTimer.hours = 0;
+        updateTimerDisplay(productiveTimerDisplay, productiveTimer);
+      }
+      
+      function startIdleTimer() {
+        if (!idleTimer.isRunning) {
+          if (productiveTimer.isRunning) {
+            stopProductiveTimer();
+          }
+          
+          idleTimer.isRunning = true;
+          idleStartBtn.disabled = true;
+          idleStopBtn.disabled = false;
+          
+          idleTimerDisplay.classList.add('timer-active');
+          
+          idleTimer.interval = setInterval(function() {
+            idleTimer.seconds++;
+            
+            if (idleTimer.seconds >= 60) {
+              idleTimer.seconds = 0;
+              idleTimer.minutes++;
+              
+              if (idleTimer.minutes >= 60) {
+                idleTimer.minutes = 0;
+                idleTimer.hours++;
+              }
+            }
+            
+            updateTimerDisplay(idleTimerDisplay, idleTimer);
+          }, 1000);
+        }
+      }
+      
+      function stopIdleTimer() {
+        if (idleTimer.isRunning) {
+          clearInterval(idleTimer.interval);
+          idleTimer.isRunning = false;
+          idleStartBtn.disabled = false;
+          idleStopBtn.disabled = true;
+          idleTimerDisplay.classList.remove('timer-active');
+        }
+      }
+      
+      function resetIdleTimer() {
+        stopIdleTimer();
+        idleTimer.seconds = 0;
+        idleTimer.minutes = 0;
+        idleTimer.hours = 0;
+        updateTimerDisplay(idleTimerDisplay, idleTimer);
+      }
+      
+      function updateTimerDisplay(element, timer) {
+        element.textContent = 
+          `${timer.hours.toString().padStart(2, '0')}:${timer.minutes.toString().padStart(2, '0')}:${timer.seconds.toString().padStart(2, '0')}`;
+      }
+      
+      // Event listeners
+      productiveStartBtn.addEventListener('click', startProductiveTimer);
+      productiveStopBtn.addEventListener('click', stopProductiveTimer);
+      productiveResetBtn.addEventListener('click', resetProductiveTimer);
+      
+      idleStartBtn.addEventListener('click', startIdleTimer);
+      idleStopBtn.addEventListener('click', stopIdleTimer);
+      idleResetBtn.addEventListener('click', resetIdleTimer);
+      
+      manualEntryForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get form values
+        const productiveMinutes = document.getElementById('productive-minutes').value;
+        const idleMinutes = document.getElementById('idle-minutes').value;
+        const productivityScore = document.getElementById('productivity-score').value;
+        const tasksCompleted = document.getElementById('tasks-completed').value;
+        
+        // Form validation
+        if (!productiveMinutes && !idleMinutes) {
+          showToast('Please enter productive or idle minutes', 'error');
+          return;
+        }
+        
+        if (productivityScore && (productivityScore < 0 || productivityScore > 100)) {
+          showToast('Productivity score must be between 0 and 100', 'error');
+          return;
+        }
+        
+        // This is where we would send data to API
+        // For prototype, we'll just show a success message
+        showToast('Entry added successfully!');
+        
+        // Reset form
+        manualEntryForm.reset();
+        
+        // This would typically update the UI with the new data
+        // In the prototype, we'll just leave it as is
+      });
+      
+      // Settings modal
+      settingsBtn.addEventListener('click', function() {
+        settingsModal.classList.add('show');
+      });
+      
+      closeSettingsBtn.addEventListener('click', function() {
+        settingsModal.classList.remove('show');
+      });
+      
+      // Close modal when clicking outside
+      settingsModal.addEventListener('click', function(e) {
+        if (e.target === settingsModal) {
+          settingsModal.classList.remove('show');
+        }
+      });
+      
+      resetDataBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset all data? This cannot be undone.')) {
+          // In a real app, this would clear LocalStorage
+          showToast('All data has been reset');
+        }
+      });
+      
+      exportDataBtn.addEventListener('click', function() {
+        // In a real app, this would export data to CSV
+        showToast('Data export is not available in the prototype');
+      });
+      
+      // Toast notification
+      function showToast(message, type = 'success') {
+        toastMessage.textContent = message;
+        
+        if (type === 'error') {
+          toast.style.borderLeftColor = '#ef4444';
+        } else {
+          toast.style.borderLeftColor = '#10b981';
+        }
+        
+        toast.classList.add('show');
+        
+        setTimeout(function() {
+          toast.classList.remove('show');
+        }, 3000);
+      }
+      
+      // Initialize charts
+      initializeCharts();
+      
+      function initializeCharts() {
+        // Time allocation chart
+        const timeAllocationCtx = document.getElementById('time-allocation-chart').getContext('2d');
+        const timeAllocationChart = new Chart(timeAllocationCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Productive', 'Idle'],
+            datasets: [{
+              data: [0, 0], // This will be populated with real data
+              backgroundColor: [
+                'rgba(16, 185, 129, 0.7)',
+                'rgba(249, 115, 22, 0.7)'
+              ],
+              borderColor: [
+                'rgba(16, 185, 129, 1)',
+                'rgba(249, 115, 22, 1)'
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  color: '#f3f4f6'
+                }
+              }
+            }
+          }
+        });
+        
+        // Productivity trend chart
+        const productivityTrendCtx = document.getElementById('productivity-trend-chart').getContext('2d');
+        const productivityTrendChart = new Chart(productivityTrendCtx, {
+          type: 'line',
+          data: {
+            labels: ['6 days ago', '5 days ago', '4 days ago', '3 days ago', '2 days ago', 'Yesterday', 'Today'],
+            datasets: [{
+              label: 'Productivity Score',
+              data: [0, 0, 0, 0, 0, 0, 0], // This will be populated with real data
+              fill: true,
+              backgroundColor: 'rgba(99, 102, 241, 0.2)',
+              borderColor: 'rgba(99, 102, 241, 1)',
+              borderWidth: 2,
+              pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+              tension: 0.2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: {
+                  color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                  color: '#9ca3af'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                },
+                ticks: {
+                  color: '#9ca3af'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
